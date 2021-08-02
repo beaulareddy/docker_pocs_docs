@@ -1,0 +1,24 @@
+Docker volumes
+=====================================
+
+First create volume
+#docker volume create myvol1
+Attach volume to container
+# docker run -it --name cont1 -p 3306:3306 -v myvol1: /var/lib/mysql -e MYSQL_ROOT_PASSWORD=root mysql:5.7
+/var/lib/mysql is default home directory for mysql
+first we need to chect default home directory and we should map our volume to it
+#docker exec-t cont1 /bin/bash
+>mysql -uroot -proot
+create database my_db;
+show databases;
+exit
+#delete container and create new container with myvol1 we can find the data existing to restore
+Bind mounts
+First create directory and find PWD
+#mkdir test
+#pwd
+root/test
+Create cont with this bind mount
+# docker run -it --name cont2 -p 3306:3306 -v /root/bind:/var/lib/mysql -e MYSQL_ROOT_pASSWORD=root mysql:5.7
+Now we can see that data available indefault directory test.
+

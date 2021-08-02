@@ -1,0 +1,35 @@
+How CMD overwrites ENTRYPOINT
+
+================================
+
+CMD:
+This helps you to overwrite the base command declared inside the image.
+ENTRYPOINT:
+You cannot over write the entrypoint once you created the image.
+CMD Execution ::
+#cat script1.sh
+#!/bin/bash
+echo "Hi I am Script1"
+#cat script2.sh
+#!/bin/bash
+echo "hi I am script2"
+# cat Dockerfile
+FROM centos:7
+COPY script1.sh script2.sh /tmp/
+CMD ["/bin/bash","/tmp/script1.sh"]
+#docker build -t cmd:v1 .
+#docker run cmd:v1
+Hi I am Script1  
+# docker run cmd:v1 /bin/bash /tmp/script2.sh
+Hi I am script2
+ENTRYPOINT Execution ::
+#cat Dockerfile
+FROM centos:7
+COPY script1.sh script2.sh /tmp/
+ENTRYPOINT ["/bin/bash","/tmp/script1.sh"]
+#docker build -t entry:v1 .
+# docker run entry:v1
+Hi I am Script1
+# docker run entry:v1 /bin/bash /tmp/script2.sh
+Hi I am Script1
+

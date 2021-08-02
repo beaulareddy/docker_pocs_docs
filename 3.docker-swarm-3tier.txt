@@ -1,0 +1,106 @@
+3 Tier on three different hosts
+
+========================================
+
+Using Dockerswarm
+1.First  initialize swarm on node 1
+# docker swarm init
+2.Copy the generated token in other 2 nodes
+ex:  docker swarm join --token SWMTKN-1-2anhbl3g1acvk5334y5vrdh2b7hcf4h0nkoawko5vk76ndlw1d-c6umb9ylhmauci6snogdo0w0d 172.31.90.50:2377
+3. Now create a overlay network in one node1(master as per swarm) and it will reflect in other nodes.
+# docker network create -d overlay --attachable emp-net-01
+4.In db node create container 
+ docker run -d --name emp-db --network emp-net-01 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=employee_db mysql:5.7
+5.In Backeend node do doing required changes
+Need to delete port detail in application.properties file (\springboot-backend\src\main\resources)
+ need to give host name details in EmployeeController.java file (springboot-backend/src/main/java/com/example/demo/controller)(i.e give* instaed of ip and 4200 in @crossorigin)
+we need to comment 4 line of file SpringbootBackendApplication.java (springboot-backend\src\main\java\com\example\demo)
+6. Now build the image and run container
+#mvn clean install -DskipTests
+# docker build -t emp_app_image:v1.0 .
+#docker run -d  --name emp-app --network emp-net -01 -p 8080:8080 -e host=emp-db -e mysql_user=root -e mysql_password=root emp_app_image:v1.0
+7. Now In node3 i.e  for angular do required changes
+need to give ip of backend host in the following path
+( i.e in private baseURL="<http:// ip of bacend:8080/api/v1/employees>";)
+ashlesh/angular app/app/src/app/employee.service.ts
+8. create dockerfile as below in angular app
+FROM node:10-alpine as build-step
+RUN mkdir -p /app1
+WORKDIR /app1
+COPY package.json /app1
+RUN npm install
+COPY . /app1
+RUN npm run build --prod
+# Stage 2
+FROM nginx:1.17.1-alpine
+COPY --from=build-step /app1/dist/app /usr/share/nginx/html
+9. Now build the image and run the container
+#docker build -t emp_web_image:v1.0 
+ docker run -d -it -p 80:80/tcp --name emp-web  --network emp-net-01 emp_web_image:v1.0
+10. Now test the application
+publicip of angular:80
+
+https://dzone.com/articles/how-to-dockerize-angular-app --->> to dockerize angular app
+
+We can writ this dockerfile in springboot instead of giving -DskipTests in that
+FROM maven:3.6-alpine as builder
+COPY springboot-backend /springboot-backend
+WORKDIR /springboot-backend
+RUN mvn clean install -DskipTests
+FROM openjdk:8-alpine
+COPY --from=builder  /springboot-backend/target/app.jar /app.jar
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","app.jar"]
+
+Using Reverse proxy
+changes required are we need to create two overlay networks in master/leader and connect backend container two both the networks
+i.e db cont will be in network1 and backend will be in network1& network2 ,frontend will be in network2
+# docker network create -d overlay --attachable emp-net-01
+#docker network create -d overlay --attachable emp-net-02
+now run containers by following above steps but only change we need to do is add backend container to two networks and add default.conf and Dockerfile for angular as follows
+1) to attach backend container to network2 
+#docker network connect emp-net-02 emp-app
+2)for angular app write default.conf file in the following path
+/ashlesh/angular app/app
+#vi default.conf
+server {
+    listen       80;
+    server_name  localhost;
+    #charset koi8-r;
+    #access_log  /var/log/nginx/host.access.log  main;
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+    location /emp_app{
+       proxy_pass http://emp-app:8080/api/v1/employees;
+    }
+    #error_page  404              /404.html;
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+Vi Dockerfile
+FROM node:12-alpine as builder
+RUN mkdir -p /app
+WORKDIR /app
+COPY . .
+RUN npm install
+RUN npm run build --prod
+FROM nginx:1.17.1-alpine
+COPY --from=builder /app/dist/app /usr/share/nginx/html
+RUN rm -rf /etc/nginx/conf.d/default.conf
+COPY default.conf /etc/nginx/conf.d
+3) Now build a image and run container
+#docker build -t emp_web_image:v1.0 .
+#docker run -d -it -p 80:80/tcp --name emp-web --network emp-net-02 emp_web_image:v1.0 
+4)now test the application
+publicip:80 on browser
+
+
+
+
+

@@ -1,0 +1,7 @@
+To push images to dockerhub
+
+===========================
+
+#docker tag jdk8:v1.0 beaulareddy/jdk8:v1.0
+#docker login
+# docker push beaulareddy/jdk8:v1.0

@@ -1,0 +1,10 @@
+Set env variable using dockerfile as well as command line
+
+================================
+
+FROM mysql:latest
+ENV MYSQL_DATABASE=emp_db
+ENV MYSQL_USER=root
+
+Env using command line
+docker run -d --name emp_db  -e  MYSQL_ROOT_PASSWORD=root  mysql:5.7

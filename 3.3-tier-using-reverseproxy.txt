@@ -1,0 +1,62 @@
+3-Tier Application using Reverse proxy
+
+================================================
+
+
+Increased Security: A Nginx reverse proxy also acts as a line of defense for your backend servers. Configuring a reverse proxy ensures that the identity of your backend servers remains unknown.
+It ensures that no user or client communicates directly with the origin server.
+That’s why you can use a reverse proxy to redirect requests to the site’s blog hosted on a separate server. For example, a bank can host their main website on their servers securely, but they can also host their WordPress-powered blog separately on a managed WordPress host like Kinsta.
+Unifying two different sites under a single domain name is one of the key advantages of using a reverse proxy. It helps brands keep their sites organized, professional, and maintain credibility.
+
+pre-requisuites
+java ,git, docker ,maven
+1) First create customized bridge network
+#docker network create emp-net-01
+2)next create database container
+ docker run -d --name emp-db-01 --network emp-net-01 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=employee_db mysql:5.7
+3)now for backend application do all required changes and buila a image and create a cntainer
+#docker build  -t emp-appimage:v1.0 .
+#docker run -d  --name emp-app  --network emp-net-01 -e host=emp-db-01 -e mysql_user=root -e mysql_password=root emp-appimage:v1.0
+4) Now write default conf file for angular app and also write Dockerfile as follows
+in default.conf file in proxy pass give backend container name and also give location /(name we gave in employee.service.ts)
+i.e in the following path  vi angular app/app/src/app/employee.service.ts 
+give private baseURL="emp_app"
+#vi default.conf
+server {
+    listen       80;
+    server_name  localhost;
+    #charset koi8-r;
+    #access_log  /var/log/nginx/host.access.log  main;
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+    location /emp_app {
+       proxy_pass http://emp-app:8080/api/v1/employees;
+    }
+    #error_page  404              /404.html;
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+#vi Dockerfile
+FROM node:12-alpine as builder
+RUN mkdir -p /app
+WORKDIR /app
+COPY . .
+RUN npm install
+RUN npm run build --prod
+FROM nginx:1.17.1-alpine
+COPY --from=builder /app/dist/app /usr/share/nginx/html
+RUN rm -rf /etc/nginx/conf.d/default.conf
+COPY default.conf /etc/nginx/conf.d
+5) build image
+#docker build -t emp-webimage:v1.0 .
+#docker run -d -it -p 80:80/tcp --name emp-web -01  --network emp-net-01  emp-webimage:v1.0
+
+
+
+
